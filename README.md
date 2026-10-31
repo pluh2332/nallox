@@ -1,2 +1,6 @@
-# nallox
-a linux distribution using a netbsd userland (i love gnu alot but im choosing to just go the bsd way so unfortunately no gnu)
+#nallox
+
+linux distribution using [copyrighted] userland 
+
+this is a pre release so nothing yet
+may take a weeks to months if i dont quit when im close to finishing
