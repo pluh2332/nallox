@@ -1,6 +1,10 @@
-#nallox
+Pre release version
 
-linux distribution using [copyrighted] userland 
+## Credits and disclaimer
 
-this is a pre release so nothing yet
-may take a weeks to months if i dont quit when im close to finishing
+nallox is built from or on top of NetBSD, LLVM, musl, bmake, pkgsrc and the
+Linux kernel. nallox is not affiliated with or endorsed by the NetBSD
+Foundation, the Linux Foundation, or any of these projects.
+
+NetBSD is a registered trademark of The NetBSD Foundation, Inc. Linux is the
+registered trademark of Linus Torvalds.
