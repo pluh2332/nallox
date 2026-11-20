@@ -1,0 +1,96 @@
+#!/bin/sh
+# n-pkg: thin front end for pkgsrc (BSD-2-Clause)
+PKGSRC=/usr/pkgsrc
+LOGDIR=/var/log/n-pkg
+PATH=/usr/pkg/bin:/usr/pkg/sbin:$PATH
+export PATH
+usage() { echo "usage: n-pkg setup|add|remove|search|list|log|status [name]" >&2; exit 1; }
+case "$1" in
+setup)
+  [ "$(id -u)" = 0 ] || { echo "n-pkg: setup must run as root" >&2; exit 1; }
+  branch=${2:-2026Q3}
+  jobs=$(nproc 2>/dev/null || echo 1)
+  mkdir -p $LOGDIR
+  if [ ! -d $PKGSRC/bootstrap ]; then
+    echo "n-pkg: downloading pkgsrc-$branch"
+    cd /usr || exit 1
+    curl -fL -o pkgsrc.tar.xz https://cdn.netbsd.org/pub/pkgsrc/pkgsrc-$branch/pkgsrc-$branch.tar.xz || { echo "n-pkg: download failed" >&2; exit 1; }
+    xz -dc pkgsrc.tar.xz | tar xf - || { echo "n-pkg: unpack failed" >&2; exit 1; }
+    rm -f pkgsrc.tar.xz
+  fi
+  T=$PKGSRC/mk/tools/tools.Linux.mk
+  if ! grep -q 'nallox' $T; then
+    echo '# nallox: BSD awk and m4 are the system tools' >> $T
+    echo 'TOOLS_PLATFORM.awk=/bin/awk' >> $T
+    echo 'TOOLS_PLATFORM.nawk=/bin/awk' >> $T
+    sed -i '/TOOLS_PLATFORM.gm4?=/d' $T
+  fi
+  sed -i 's|\${AWK} -f|/bin/awk -f|' $PKGSRC/mk/pkgformat/pkg/list-dependencies
+  mkdir -p /usr/pkg/bin
+  ln -sf /bin/awk /usr/pkg/bin/nawk
+  cd $PKGSRC/bootstrap || exit 1
+  ./cleanup > /dev/null 2>&1
+  echo "n-pkg: bootstrapping pkgsrc (log: $LOGDIR/bootstrap.log)"
+  if ! ./bootstrap --prefix /usr/pkg --compiler clang --cwrappers no --make-jobs $jobs < /dev/null > $LOGDIR/bootstrap.log 2>&1; then
+    echo "n-pkg: bootstrap failed, last lines:" >&2
+    tail -15 $LOGDIR/bootstrap.log >&2
+    exit 1
+  fi
+  mk=/usr/pkg/etc/mk.conf
+  if ! grep -q 'nallox settings' $mk; then
+    cat >> $mk <<'MKEOF'
+# nallox settings
+FETCH_USING=curl
+PKGSRC_KEEP_BIN_PKGS=no
+CLEANDEPENDS=yes
+CFLAGS+=-fcommon
+CFLAGS+=-Wno-unused-command-line-argument
+MAKE_JOBS!= nproc 2>/dev/null || echo 1
+MKEOF
+  fi
+  if ! grep -q '/usr/pkg/bin' /etc/profile 2>/dev/null; then
+    echo 'PATH=/usr/pkg/bin:/usr/pkg/sbin:$PATH' >> /etc/profile
+    echo 'export PATH' >> /etc/profile
+  fi
+  echo "n-pkg: pkgsrc is ready (log out and in again, or: export PATH=/usr/pkg/bin:/usr/pkg/sbin:\$PATH)" ;;
+add)
+  [ -n "$2" ] || usage
+  n=0; d=
+  for c in $PKGSRC/*/"$2"; do
+    [ -f "$c/Makefile" ] && { n=$((n+1)); d=$c; }
+  done
+  [ $n -eq 1 ] || { echo "n-pkg: $n packages named '$2' (try: n-pkg search $2)" >&2; exit 1; }
+  mkdir -p $LOGDIR
+  log=$LOGDIR/$2.log
+  echo "n-pkg: building $2 (log: $log)"
+  if (cd "$d" && bmake install clean) < /dev/null > "$log" 2>&1; then
+    echo "n-pkg: $2 installed"
+  else
+    echo "n-pkg: $2 failed, last lines:" >&2
+    tail -15 "$log" >&2
+    exit 1
+  fi ;;
+remove)
+  [ -n "$2" ] || usage
+  pkg_delete "$2" 2>/dev/null || pkg_delete "$2-[0-9]*" ;;
+search)
+  [ -n "$2" ] || usage
+  ls -d $PKGSRC/*/*"$2"* 2>/dev/null | sed "s|$PKGSRC/||" | grep -v -e '^distfiles/' -e '^packages/' -e '^CVS/' -e '^mk/' -e '^bootstrap/' -e '^doc/' ;;
+list)
+  pkg_info ;;
+log)
+  [ -n "$2" ] || usage
+  [ -f "$LOGDIR/$2.log" ] || { echo "n-pkg: no log for '$2'" >&2; exit 1; }
+  tail -20 "$LOGDIR/$2.log" | cut -c1-100 ;;
+status)
+  n=$(ps -A | grep -c -e bmake -e clang -e gmake)
+  if [ "$n" -gt 0 ]; then echo "n-pkg: a build is running"; else echo "n-pkg: no build running"; fi
+  last=$(ls -t $LOGDIR/*.log 2>/dev/null | head -1)
+  if [ -n "$last" ]; then
+    echo "n-pkg: newest log: $last"
+    grep "===> " "$last" | tail -1 | cut -c1-70
+  fi
+  df -h / | tail -1 ;;
+*)
+  usage ;;
+esac
