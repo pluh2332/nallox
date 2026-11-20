@@ -14,7 +14,7 @@ These steps assume UEFI and an NVMe disk at `/dev/nvme0n1`. Change the device na
 - Set the tarball location once:
 
 ```
-URL=https://github.com/pluh2332/nallox/releases/download/v0.1.0/nallox-rootfs.tar.xz
+url is https://github.com/pluh2332/nallox/archive/refs/tags/new.tar.gz 
 ```
 
 ## 1. Partition and format
