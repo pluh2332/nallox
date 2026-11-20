@@ -1,0 +1,138 @@
+# Installing nallox
+
+You can install nallox from any Arch or Gentoo live CD. There is no installer and no live image. You unpack the root filesystem, build a kernel with the shipped config, and register it with the firmware. On UEFI you don't need an initramfs or a bootloader.
+
+These steps assume UEFI and an NVMe disk at `/dev/nvme0n1`. Change the device names to match your disk (SATA disks look like `/dev/sda1` and `/dev/sda2`). Run everything as root on the live CD unless it says otherwise.
+
+> These steps haven't been run on a clean disk yet. If something doesn't work, open an issue.
+
+## Before you start
+
+- Boot the live CD in UEFI mode and get a network connection.
+- This erases the disk. Run `lsblk` first and check the device name.
+- To build the kernel you need `make`, a C compiler (gcc, or clang with lld), `bc`, `flex`, `bison`, `perl`, libelf and the OpenSSL headers. On the Arch live CD: `pacman -Sy --needed base-devel bc libelf`
+- Set the tarball location once:
+
+```
+URL=https://github.com/pluh2332/nallox/releases/download/v0.1.0/nallox-rootfs.tar.xz
+```
+
+## 1. Partition and format
+
+You need two partitions: a 512 MB EFI system partition and an ext4 root.
+
+```
+cfdisk /dev/nvme0n1
+```
+
+In cfdisk, choose GPT if it asks. Select New, enter 512M, then set its type to EFI System. Select the free space, choose New, and press Enter to use the rest of the disk. Choose Write and type `yes`, then Quit.
+
+```
+mkfs.fat -F32 /dev/nvme0n1p1
+mkfs.ext4 -L nallox-root /dev/nvme0n1p2
+```
+
+## 2. Mount and unpack
+
+```
+mount /dev/nvme0n1p2 /mnt
+mkdir -p /mnt/boot
+mount /dev/nvme0n1p1 /mnt/boot
+curl -L "$URL" | tar -xJpf - -C /mnt --numeric-owner
+```
+
+Keep `-p` and `--numeric-owner`. They preserve the setuid bit on `run` and `passwd` and keep every file owned by root.
+
+## 3. Enter the system and set the root password
+
+The root account ships locked, so you have to set a password before you can log in.
+
+```
+/mnt/usr/sbin/nallox-chroot /mnt
+passwd root
+```
+
+`nallox-chroot` mounts `proc`, `sys` and `dev` under the target and drops you into a shell there. It unmounts them when you leave.
+
+## 4. Create your user
+
+Still inside the chroot. nallox has no `useradd`, so add the account by hand. Replace `me` with your username.
+
+```
+echo 'me:x:1000:1000:me:/home/me:/bin/sh' >> /etc/passwd
+echo 'me:!:19000:0:99999:7:::' >> /etc/shadow
+echo 'me:x:1000:' >> /etc/group
+mkdir -p /home/me && chown 1000:1000 /home/me
+passwd me
+```
+
+To let this user run commands as root with `run`, add the name to the wheel group: change the `wheel:x:10:` line in `/etc/group` to `wheel:x:10:me`. The shipped `/etc/run.conf` already contains `permit :wheel`.
+
+Leave the chroot with `exit`.
+
+## 5. Build the kernel
+
+Build on the live CD, outside the chroot. The shipped config (`/usr/share/nallox/kernel-config`) has EFI stub boot, ext4, NVMe, AHCI, USB storage and devtmpfs built in, so you don't need an initramfs.
+
+```
+cd /tmp
+curl -LO https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.48.tar.xz
+tar -xf linux-6.18.48.tar.xz
+cd linux-6.18.48
+cp /mnt/usr/share/nallox/kernel-config .config
+make olddefconfig
+make -j$(nproc)
+```
+
+You don't have to use this exact kernel version. 6.18.48 is the one the config was made with.
+
+Add `LLVM=1` to both `make` lines if you build with clang and lld. The config was made with clang, and `olddefconfig` adjusts it to the compiler it finds.
+
+If your hardware needs a driver the config doesn't include (a Wi-Fi chip, for example), run `make menuconfig` before the final `make` and set it to `y`. nallox has no udev, so modules are not loaded automatically. Anything you need at boot has to be built in.
+
+Copy the kernel to the EFI partition:
+
+```
+mkdir -p /mnt/boot/EFI/nallox
+cp arch/x86/boot/bzImage /mnt/boot/EFI/nallox/bzImage.efi
+```
+
+## 6. Register the kernel with the firmware
+
+The kernel boots directly as an EFI program, with the root partition given on its command line:
+
+```
+PARTUUID=$(blkid -s PARTUUID -o value /dev/nvme0n1p2)
+efibootmgr --create --disk /dev/nvme0n1 --part 1 --label nallox \
+  --loader '\EFI\nallox\bzImage.efi' \
+  --unicode "root=PARTUUID=$PARTUUID rw"
+```
+
+The command line needs both `root=` and `rw`. Without `rw` the system stays read-only.
+
+## 7. Reboot
+
+```
+umount -R /mnt
+reboot
+```
+
+Remove the live CD. nallox starts `ninit` as `/sbin/init`, which mounts the virtual filesystems and runs `/etc/rc`. Log in as the user you created.
+
+## 8. After the first boot
+
+The base system is small on purpose. Extra software comes from pkgsrc through the `n-pkg` wrapper:
+
+```
+run n-pkg setup
+run n-pkg add gmake
+```
+
+`n-pkg setup` downloads pkgsrc, bootstraps it into `/usr/pkg` and sets up `PATH`. It needs a network connection and takes a while. Install `gmake` if you want to build kernels inside nallox. The other commands are `n-pkg add NAME`, `remove`, `search`, `list`, `log NAME` and `status`.
+
+## Notes
+
+- **BIOS machines:** these steps are for UEFI only. On BIOS, install Limine or extlinux and point it at the same kernel with the same `root=` command line.
+- **Modules:** there is no udev, so drivers must be built in (`=y`).
+- **initramfs:** not needed. If you want one anyway, `dracut` or `mkinitcpio` from the live CD can build it, and you add `initrd=` to the boot entry.
+- **Locked root:** the tarball ships with `root` locked (`*` in `/etc/shadow`). Step 3 is what lets you log in.
