@@ -1,14 +1,5 @@
 # Installing nallox
-
-nallox installs from any Arch or Gentoo live CD. There is no installer and no live image. You unpack the root filesystem, build a kernel with the shipped config, and register it with the firmware. On UEFI you don't need an initramfs or a bootloader.
-
-> Not yet tested from start to finish. If a step fails, open an issue and include the last lines of output.
-
-## Before you start
-
-- **Boot the live CD in UEFI mode.** This guide does not cover BIOS. Check with `ls /sys/firmware/efi`. It should list some entries. If it says "No such file or directory", you booted in BIOS mode. In a virtual machine, set the firmware to UEFI (OVMF) before you start.
-- **This erases the disk.** Run `lsblk` and check the device names.
-- **You need a network connection** for the downloads.
+there isnt any installation disk, only a .tar.xz and this guide.
 
 Set these variables once. The values below are for a virtual disk. For NVMe use `/dev/nvme0n1`, `/dev/nvme0n1p1` and `/dev/nvme0n1p2`. For SATA use `/dev/sda`, `/dev/sda1` and `/dev/sda2`.
 
