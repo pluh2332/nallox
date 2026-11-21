@@ -1,13 +1,8 @@
 # Installing nallox
 there isnt any installation disk, only a .tar.xz and this guide.
 
-Set these variables once. The values below are for a virtual disk. For NVMe use `/dev/nvme0n1`, `/dev/nvme0n1p1` and `/dev/nvme0n1p2`. For SATA use `/dev/sda`, `/dev/sda1` and `/dev/sda2`.
-
 ```
-DISK=/dev/vda
-ESP=/dev/vda1
-ROOTDEV=/dev/vda2
-URL=https://github.com/pluh2332/nallox/releases/download/linux/nallox-rootfs.tar.xz
+(variable) URL=https://github.com/pluh2332/nallox/releases/download/linux/nallox-rootfs.tar.xz
 ```
 
 ## 1. Partition and format
@@ -15,31 +10,22 @@ URL=https://github.com/pluh2332/nallox/releases/download/linux/nallox-rootfs.tar
 You need two partitions: a 512 MB EFI system partition and an ext4 root.
 
 ```
-cfdisk $DISK
+cfdisk /dev/disk (whatever your disk is, vda, sda, nvme0n1)
 ```
 
 In cfdisk, pick GPT if it asks. Choose New, enter `512M`, then set its type to EFI System. Select the free space, choose New, and press Enter to use the rest of the disk. Choose Write, type `yes`, then Quit.
 
 ```
-mkfs.fat -F32 $ESP
-mkfs.ext4 -L nallox-root $ROOTDEV
+mkfs.fat -F32 /dev/diskp1
+mkfs.ext4 -L nallox-root /dev/diskp2
 ```
 
 ## 2. Mount and unpack
-
-```
-mount $ROOTDEV /mnt
+mount /dev/diskp2 /mnt
 mkdir -p /mnt/boot
-mount $ESP /mnt/boot
+mount /dev/diskp1 /mnt/boot
 curl -L "$URL" | tar -xJpf - -C /mnt --numeric-owner
 ls /mnt
-```
-
-`ls /mnt` should list `bin boot dev etc init lib lost+found proc root run sbin sys tmp usr var`.
-
-Keep `-p` and `--numeric-owner`. They preserve the setuid bit on `run` and `passwd` and keep everything owned by root.
-
-If tar says "File format not recognized", the download is not the real tarball. Download it to a file and check the size. It should be about 75 MB:
 
 ```
 curl -L -o /tmp/rootfs.tar.xz "$URL"
@@ -48,7 +34,7 @@ ls -l /tmp/rootfs.tar.xz
 
 ## 3. Enter the system, set passwords, create a user
 
-The root account ships locked. You have to set a password before you can log in.
+the root account ships locked. You have to set a password before you can log in.
 
 ```
 /mnt/usr/sbin/nallox-chroot /mnt
@@ -58,7 +44,7 @@ This mounts `proc`, `sys` and `dev` under `/mnt` and gives you a shell inside na
 
 ```
 passwd root
-U=me
+U=me (or whatever you want the username to be)
 echo "$U:x:1000:1000:$U:/home/$U:/bin/sh" >> /etc/passwd
 echo "$U:!:19000:0:99999:7:::" >> /etc/shadow
 echo "$U:x:1000:" >> /etc/group
