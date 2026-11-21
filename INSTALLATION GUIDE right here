@@ -81,7 +81,7 @@ cd /mnt/var/tmp
 curl -LO https://cdn.kernel.org/pub/linux/kernel/v6.x/linux-6.18.48.tar.xz
 tar -xf linux-6.18.48.tar.xz
 cd linux-6.18.48
-cp /mnt/usr/share/nallox/kernel-config .config
+## use this if u know what you're doing,this is supposed to be a minimalist config which might not have working drivers most times cp /mnt/usr/share/nallox/kernel-config .config
 make olddefconfig
 make -j$(nproc)
 ls -l arch/x86/boot/bzImage
