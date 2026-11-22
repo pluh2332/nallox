@@ -2,7 +2,7 @@
 there isnt any installation disk, only a .tar.xz and this guide.
 
 ```
-(variable) URL=https://github.com/pluh2332/nallox/releases/download/linux/nallox-rootfs.tar.xz
+(variable) URL=https://github.com/pluh2332/nallox/releases/download/v0.1.1/nallox-rootfs.tar.xz
 ```
 
 ## 1. Partition and format
