@@ -1,0 +1,4 @@
+nbsh with editing: compile these sh sources with $NBCC -D__diagused= -DSHELL -I$NBS/bin/sh -I$NBS/lib/libedit
+(histedit.c also with -include funopen2.h, var.c also with -include tzshim.h, output.c also with -DHAVE_VASPRINTF=1):
+histedit var expand input main options parser eval exec cd jobs trap redir show mail alias error memalloc mystring miscbltin output
+Link: $TOOLS/bin/cc-musl -static -o nbsh (objects, preferring $WORK/nbsh/nb2/*.o over $WORK/nbsh/*.o) edit/libedit.a terminfo/libterminfo.a

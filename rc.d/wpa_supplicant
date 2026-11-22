@@ -1,0 +1,10 @@
+#!/bin/sh
+# PROVIDE: wpa_supplicant
+# REQUIRE: ndev
+# BEFORE: dhcpcd
+. /etc/rc.subr
+case "$1" in
+start)  daemon_supervise wpa_supplicant /bin/sh -c 'n=0; while [ $n -lt 60 ]; do for d in /sys/class/net/*/wireless; do [ -d "$d" ] || continue; i=${d%/wireless}; i=${i##*/}; exec /usr/sbin/wpa_supplicant -i "$i" -c /etc/wpa_supplicant.conf -D nl80211; done; sleep 1; n=$((n+1)); done; exit 1' && echo "wpa_supplicant started" ;;
+stop)   daemon_stop wpa_supplicant; echo "wpa_supplicant stopped" ;;
+status) if daemon_running wpa_supplicant; then echo "wpa_supplicant: running"; else echo "wpa_supplicant: not running"; fi ;;
+esac

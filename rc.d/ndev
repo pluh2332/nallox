@@ -1,0 +1,9 @@
+#!/bin/sh
+# PROVIDE: ndev
+# BEFORE: dhcpcd
+. /etc/rc.subr
+case "$1" in
+start)  daemon_supervise ndev /usr/sbin/n-dev && echo "ndev started" ;;
+stop)   daemon_stop ndev; echo "ndev stopped" ;;
+status) if daemon_running ndev; then echo "ndev: running"; else echo "ndev: not running"; fi ;;
+esac

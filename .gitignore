@@ -5,3 +5,4 @@ ninit/n-daemon
 ninit/passwd
 ninit/run
 ninit/ttyopen
+ninit/n-dev
